@@ -195,14 +195,12 @@ def connection(conn, addr):
 
                 # Se um Atuador inoperante for reiniciado e 
                 # se reconectar, zeramos os erros para que ele volte a funcionar
-                if orig in atuadores_timeout_count:
-                    atuadores_timeout_count[orig] = 0
-                    atuadores_error_count[orig] = 0
-                    atuadores_ack[orig] = 0
-                    atuadores_req[orig] = 0
-
-                # Inicia a contagem de 5 segundos de inatividade 
-                conn.settimeout(5.0)
+                if orig in [ID_SENSOR_TEMP, ID_SENSOR_UMID, ID_SENSOR_OXIG, ID_SENSOR_BAT_CARD]:
+                    # Timeout apenas para os sensores, se não desfaz a conexão toda hora 
+                    conn.settimeout(5.0)
+                else:
+                    # Atuadores e Clientes ficam sem timeout (esperam indefinidamente)
+                    conn.settimeout(None)
             
             elif ID_msg == ENVIO_DADOS:
                 data = struct.unpack('!f', payload)[0]

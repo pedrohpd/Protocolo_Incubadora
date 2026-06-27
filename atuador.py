@@ -29,40 +29,50 @@ def iniciar_atuador(id):
                 s.sendall(req_header)
                 print(f"Atuador de {atuadorType} enviou: REQ_REGISTRO")
                 
-                # Aguarda ACK_REGISTRO
-                ack_header_bytes = s.recv(3)
-                if not ack_header_bytes:
-                    print(f"Atuador de {atuadorType} Erro: O Gerenciador fechou a conexão inesperadamente. Outra tentativa de conexão será realizada...")
-                    continue
-                
-                origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
-                if destino != id:
-                    print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Atuador de {atuadorType}.")
-                    # Limpa o buffer
-                    if payload_size > 0:
-                        bytes_to_read = payload_size // 8 if payload_size >= 8 else 1
-                        s.recv(bytes_to_read)
-                    continue # Volta para o início do loop (ignora a mensagem)
-
-                if msg_id == ACK_REGISTRO:
-                    status_bytes = s.recv(payload_size)
-                    status = int.from_bytes(status_bytes, byteorder='big')
-                    if status == 0:
-                        print(f"Atuador de {atuadorType} recebeu: ACK_REGISTRO (OK). Iniciando monitoramento...")
+                # Acho que o socket nao era escutado o tempo todo, deve resolver
+                while True:
+                    # Aguarda ACK_REGISTRO
+                    ack_header_bytes = s.recv(3)
+                    if not ack_header_bytes:
+                        print(f"Atuador de {atuadorType} Erro: O Gerenciador fechou a conexão inesperadamente. Outra tentativa de conexão será realizada...")
+                        break
+                    
+                    origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
+                    if destino != id:
+                        print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Atuador de {atuadorType}.")
+                        # Limpa o buffer
+                        if payload_size > 0:
+                            # Mais clean que usar o if, fiz isso no jogo da semcomp :D
+                            bytes_to_read = max(1, payload_size // 8)
+                            s.recv(bytes_to_read)
+                        continue # Volta para o início do loop (ignora a mensagem)
                         
-                    else:
-                        print(f"Atuador de {atuadorType} recebeu: ACK_REGISTRO (ERROR). O Atuador será desligado.")
-                        retry = False
-                        # Conexão socket será encerrada automaticamente
-                
-                elif msg_id == CMD_ATUADOR:
-                    action_bytes = s.recv(payload_size)
-                    action = int.from_bytes(action_bytes, byteorder='big')
-                    if action == 0:
-                        print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (LIGAR).")
-                    elif action == 1:
-                        print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (DESLIGAR).")
+                    bytes_to_read = max(1, payload_size // 8)
 
+                    if msg_id == ACK_REGISTRO:
+                        status_bytes = s.recv(bytes_to_read)
+                        status = int.from_bytes(status_bytes, byteorder='big')
+                        if status == 0:
+                            print(f"Atuador de {atuadorType} recebeu: ACK_REGISTRO (OK). Iniciando monitoramento...")
+                            s.settimeout(None)            
+                        else:
+                            print(f"Atuador de {atuadorType} recebeu: ACK_REGISTRO (ERROR). O Atuador será desligado.")
+                            retry = False
+                            # Conexão socket será encerrada automaticamente
+                            break
+                    
+                    elif msg_id == CMD_ATUADOR:
+                        action_bytes = s.recv(bytes_to_read)
+                        action = int.from_bytes(action_bytes, byteorder='big')
+                        if action == 1:
+                            print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (LIGAR).")
+                        elif action == 0:
+                            print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (DESLIGAR).")
+
+                        # Envia o ACK_CMD para o gerenciador
+                        ack_header = pack_header(id, ID_GERENCIADOR, ACK_CMD, 8)
+                        s.sendall(ack_header + OK.to_bytes(1, 'big'))
+                        print(f"Atuador de {atuadorType} enviou: ACK_CMD (OK)")
 
             except (socket.timeout, ConnectionRefusedError): 
                 print(f"Atuador de {atuadorType}: Timeout de Conexão com o Gerenciador.")
