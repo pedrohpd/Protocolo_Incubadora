@@ -26,21 +26,28 @@ def iniciar_sensor(id):
 
             try:
                 s.connect((HOST, PORT))
-                # 1. Enviar REQ_REGISTRO
+                # Envia REQ_REGISTRO
                 req_header = pack_header(id, ID_GERENCIADOR, REQ_REGISTRO, 0)
                 s.sendall(req_header)
                 print(f"Sensor de {sensorType} enviou: REQ_REGISTRO")
                 
-                # 2. Aguardar ACK_REGISTRO
+                # Aguarda ACK_REGISTRO
                 ack_header_bytes = s.recv(3)
                 if not ack_header_bytes:
                     print(f"Sensor de {sensorType} Erro: O Gerenciador fechou a conexão inesperadamente. Outra tentativa de conexão será realizada...")
                     continue
                 
                 origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
-                
+                if destino != id:
+                    print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Sensor de {sensorType}.")
+                    # Limpa o buffer
+                    if payload_size > 0:
+                        bytes_to_read = payload_size // 8 if payload_size >= 8 else 1
+                        s.recv(bytes_to_read)
+                    continue # Volta para o início do loop (ignora a mensagem)
+
                 if msg_id == ACK_REGISTRO:
-                    status_bytes = s.recv(1)
+                    status_bytes = s.recv(payload_size)
                     status = int.from_bytes(status_bytes, byteorder='big')
                     if status == 0:
                         print(f"Sensor de {sensorType} recebeu: ACK_REGISTRO (OK). Iniciando monitoramento...")
@@ -55,7 +62,7 @@ def iniciar_sensor(id):
                             elif id == ID_SENSOR_UMID:
                                 data = random.uniform(30.0, 90.0) # Intervalo ideal de umidade (40 - 80)
                             elif id == ID_SENSOR_BAT_CARD:
-                                data = random.uniform(80.0, 180.0) # Intervalo ideal de batimento cardiacos por minuto (100 - 160)
+                                data = random.uniform(1.33, 3.0) # Intervalo ideal de batimentos cardiacos por segundo (1,66 - 2,66)
 
                             payload_float = struct.pack('!f', data)
                             
@@ -69,6 +76,7 @@ def iniciar_sensor(id):
                         print(f"Sensor de {sensorType} recebeu: ACK_REGISTRO (ERROR). O sensor será desligado.")
                         retry = False
                         # Conexão socket será encerrada automaticamente
+
             except (socket.timeout, ConnectionRefusedError): 
                 print(f"Sensor de {sensorType}: Timeout de Conexão com o Gerenciador.")
                 time.sleep(2)
