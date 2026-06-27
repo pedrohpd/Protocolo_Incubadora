@@ -186,7 +186,7 @@ def connection(conn, addr):
                     bytes_to_read = payload_size // 8 if payload_size >= 8 else 1
                     payload = conn.recv(bytes_to_read)
 
-            except socket.timout:
+            except socket.timeout:
                 break
 
             # Interpretação da mensagem
