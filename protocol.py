@@ -7,6 +7,7 @@ ID_SENSOR_BAT_CARD = 4
 ID_ATUADOR_AQUEC = 5
 ID_ATUADOR_UMID = 6
 ID_ATUADOR_CIRC_AR = 7 
+ID_CLIENTE = 8
 
 # IDs das Mensagens
 REQ_REGISTRO = 0 
@@ -18,6 +19,10 @@ REQ_LEITURA = 5
 RES_LEITURA = 6
 ALERTA = 7
 CONFIG = 8
+
+# Defaults
+OK = 0
+ERROR = 1
 
 def pack_header(orig, dest, msg_id, payload_size):
     """
