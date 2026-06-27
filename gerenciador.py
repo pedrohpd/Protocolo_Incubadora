@@ -14,8 +14,8 @@ BAT = -1
 # Valores default
 MIN_TEMP = 35
 MAX_TEMP = 38
-MIN_UMID = 60
-MAX_UMID = 90
+MIN_UMID = 40
+MAX_UMID = 80
 MIN_O2 = 80
 MAX_O2 = 95
 MIN_BAT = 120
@@ -148,6 +148,8 @@ def connection(conn, addr):
     Estabelece a comunicação entre o gerenciador e os sensores/atuadores/clientes
     '''
     global TEMP, O2, UMID, BAT
+    global MIN_BAT, MIN_O2, MIN_TEMP, MIN_UMID
+    global MAX_BAT, MAX_O2, MAX_TEMP, MAX_UMID
     print(f"[GERENCIADOR] Nova conexão de {addr}")
     # Variável de estado do dispositivo conectado para o envio da mensagem de alerta caso
     # a conexão seja interrompida
@@ -166,27 +168,23 @@ def connection(conn, addr):
                     break
 
                 orig, dest, ID_msg, payload_size = unpack_header(header)
+                # Leitura do payload
+                payload = b''
+                if payload_size > 0:
+                    # Conversão para bytes
+                    bytes_to_read = (payload_size + 7) // 8
+                    payload = conn.recv(bytes_to_read)
 
-                # Pacote com outro destino 
-                # Realiza a leitura, mas ignora o conteúdo
+                # Pacote com outro destino
                 if dest != ID_GERENCIADOR:
-                    if payload_size > 0:
-                        bytes_to_read = (payload_size + 7) // 8 if payload_size > 0 else 0
-                        conn.recv(bytes_to_read)
                     continue
                 
                 if ID_disp is None:
                     ID_disp = orig
                     connections[ID_disp] = conn
 
-                # Leitura do payload
-                payload = b''
-                if payload_size > 0:
-                    # Conversão para bytes
-                    bytes_to_read = payload_size // 8 if payload_size >= 8 else 1
-                    payload = conn.recv(bytes_to_read)
-
-            except socket.timout:
+            except socket.timeout:
+                print(f'[GERENCIADOR] ERRO: Timeout na conexão com {addr}.')
                 break
 
             # Interpretação da mensagem
@@ -207,8 +205,8 @@ def connection(conn, addr):
                 conn.settimeout(5.0)
             
             elif ID_msg == ENVIO_DADOS:
-                print(f"[GERENCIADOR] RECEBIDO: ENVIO_DADOS do Sensor {orig} -> Valor: {data:.2f}")
                 data = struct.unpack('!f', payload)[0]
+                print(f"[GERENCIADOR] RECEBIDO: ENVIO_DADOS do Sensor {orig} -> Valor: {data:.2f}")
 
                 # Envia ALERTA e aciona os Atuadores caso a leitura esteja fora dos limites
                 if orig == ID_SENSOR_BAT_CARD:
@@ -286,8 +284,8 @@ def connection(conn, addr):
                     else:
                         print(f"[GERENCIADOR] Falha persistente no Atuador {orig} após 3 tentativas.")
                         send_ALERTA(orig=orig, flag=ERROR)
-                
-    except ConnectionResetError:
+
+    except (socket.timeout, ConnectionRefusedError, ConnectionResetError, BrokenPipeError) as e: 
         print(f"[GERENCIADOR] Conexão com {addr} perdida.")
     finally:
         if ID_disp in connections:
@@ -297,6 +295,7 @@ def connection(conn, addr):
 
 def start_gerenciador():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, PORT))
         s.listen()
         print("[GERENCIADOR] Iniciado e aguardando conexões...")

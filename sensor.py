@@ -37,19 +37,20 @@ def iniciar_sensor(id):
                     print(f"Sensor de {sensorType} Erro: O Gerenciador fechou a conexão inesperadamente. Outra tentativa de conexão será realizada...")
                     continue
                 
-                origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
+                _, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
+                # Leitura do payload
+                payload = b''
+                if payload_size > 0:
+                        bytes_to_read = (payload_size + 7) // 8
+                        # se pa vai dar ruim com a leitura (bits x bytes)
+                        payload = s.recv(bytes_to_read)
+
                 if destino != id:
                     print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Sensor de {sensorType}.")
-                    # Limpa o buffer
-                    if payload_size > 0:
-                        bytes_to_read = (payload_size + 7) // 8 if payload_size >= 8 else 1
-                        # se pa vai dar ruim com a leitura (bits x bytes)
-                        s.recv(bytes_to_read)
                     continue # Volta para o início do loop (ignora a mensagem)
 
                 if msg_id == ACK_REGISTRO:
-                    status_bytes = s.recv(payload_size)
-                    status = int.from_bytes(status_bytes, byteorder='big')
+                    status = int.from_bytes(payload, byteorder='big')
                     if status == 0:
                         print(f"Sensor de {sensorType} recebeu: ACK_REGISTRO (OK). Iniciando monitoramento...")
                         
@@ -79,7 +80,7 @@ def iniciar_sensor(id):
                         retry = False
                         # Conexão socket será encerrada automaticamente
 
-            except (socket.timeout, ConnectionRefusedError): 
+            except (socket.timeout, ConnectionRefusedError, ConnectionResetError, BrokenPipeError) as e: 
                 print(f"Sensor de {sensorType}: Timeout de Conexão com o Gerenciador.")
                 time.sleep(2)
 
