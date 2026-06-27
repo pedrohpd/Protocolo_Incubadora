@@ -120,10 +120,6 @@ def process_atuador_cmd(id_atuador, on):
     """
     Lógica centralizada: aciona, aguarda o ACK e contabiliza os 3s de timeout
     """
-    # Se o atuador já falhou (passou de 3 timeouts), nós o consideramos INOPERANTE
-    # O 'return' impede o envio de novos comandos e o spam de alertas.
-    if atuadores_timeout_count[id_atuador] > 3:
-        return
     # Só fazemos algo se o Atuador ainda não confirmou que está no estado que desejamos
     if atuadores_ack[id_atuador] != on:
         if atuadores_req[id_atuador] != on:
@@ -170,13 +166,12 @@ def connection(conn, addr):
                 orig, dest, ID_msg, payload_size = unpack_header(header)
                 # Leitura do payload
                 payload = b''
-                if payload_size > 0:
-                    # Conversão para bytes
-                    bytes_to_read = (payload_size + 7) // 8
-                    payload = conn.recv(bytes_to_read)
+                bytes_to_read = (payload_size + 7) // 8 if payload_size > 0 else 0
+                payload = conn.recv(bytes_to_read)
 
                 # Pacote com outro destino
                 if dest != ID_GERENCIADOR:
+                    print(f"[AVISO] Mensagem descartada! Destino ({dest}) não corresponde ao Gerenciador de {ID_GERENCIADOR}.")
                     continue
                 
                 if ID_disp is None:
@@ -273,7 +268,7 @@ def connection(conn, addr):
                     atuadores_ack[orig] = atuadores_req[orig]
                     atuadores_timeout_count[orig] = 0
                     atuadores_error_count[orig] = 0
-                    print(f"[GERENCIADOR] Recebido ACK (OK) do Atuador {orig}.")
+                    print(f"[GERENCIADOR] Recebido ACK_CMD (OK) do Atuador {orig}.")
                 elif status_atuador == ERROR:
                     atuadores_error_count[orig] += 1
                     if atuadores_error_count[orig] <= 3:

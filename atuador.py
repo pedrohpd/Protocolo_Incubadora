@@ -38,16 +38,10 @@ def iniciar_atuador(id):
                         break
                     
                     origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
+                    bytes_to_read = (payload_size + 7) // 8 if payload_size > 0 else 0
                     if destino != id:
                         print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Atuador de {atuadorType}.")
-                        # Limpa o buffer
-                        if payload_size > 0:
-                            # Mais clean que usar o if, fiz isso no jogo da semcomp :D
-                            bytes_to_read = max(1, payload_size // 8)
-                            s.recv(bytes_to_read)
                         continue # Volta para o início do loop (ignora a mensagem)
-                        
-                    bytes_to_read = max(1, payload_size // 8)
 
                     if msg_id == ACK_REGISTRO:
                         status_bytes = s.recv(bytes_to_read)

@@ -40,10 +40,8 @@ def iniciar_sensor(id):
                 _, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
                 # Leitura do payload
                 payload = b''
-                if payload_size > 0:
-                        bytes_to_read = (payload_size + 7) // 8
-                        # se pa vai dar ruim com a leitura (bits x bytes)
-                        payload = s.recv(bytes_to_read)
+                bytes_to_read = (payload_size + 7) // 8 if payload_size > 0 else 0
+                payload = s.recv(bytes_to_read)
 
                 if destino != id:
                     print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Sensor de {sensorType}.")
@@ -70,7 +68,6 @@ def iniciar_sensor(id):
                             
                             # Header: 32 bits de payload para o float
                             envio_header = pack_header(id, ID_GERENCIADOR, ENVIO_DADOS, 32)
-                            # se pa vai da ruim (bits x bytes)
                             s.sendall(envio_header + payload_float)
                             
                             print(f"Sensor de {sensorType}: Dados coletados = {data:.2f}")
