@@ -64,9 +64,9 @@ def iniciar_atuador(id):
                     elif msg_id == CMD_ATUADOR:
                         action_bytes = s.recv(bytes_to_read)
                         action = int.from_bytes(action_bytes, byteorder='big')
-                        if action == 0:
+                        if action == 1:
                             print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (LIGAR).")
-                        elif action == 1:
+                        elif action == 0:
                             print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (DESLIGAR).")
 
                         # Envia o ACK_CMD para o gerenciador
