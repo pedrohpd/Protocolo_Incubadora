@@ -56,13 +56,13 @@ def iniciar_sensor(id):
                         while True:
                             data = 0
                             if id == ID_SENSOR_TEMP:
-                                data = random.uniform(32.0, 40.0) # Intervalo ideal de temperatura (34,5 - 37,5)
+                                data = random.uniform(34.9, 38.0) # Intervalo ideal de temperatura (35 - 38)
                             elif id == ID_SENSOR_OXIG:
-                                data = random.uniform(80.0, 100.0) # Intervalo ideal de oxigenação (90 - 100)
+                                data = random.uniform(80.0, 96.0) # Intervalo ideal de oxigenação (80 - 95)
                             elif id == ID_SENSOR_UMID:
-                                data = random.uniform(30.0, 90.0) # Intervalo ideal de umidade (40 - 80)
+                                data = random.uniform(40.0, 80.5) # Intervalo ideal de umidade (40 - 80)
                             elif id == ID_SENSOR_BAT_CARD:
-                                data = random.uniform(1.33, 3.0) # Intervalo ideal de batimentos cardiacos por segundo (1,66 - 2,66)
+                                data = random.uniform(119, 161) # Intervalo ideal de batimentos cardiacos por minuto (120 - 160)
 
                             payload_float = struct.pack('!f', data)
                             
