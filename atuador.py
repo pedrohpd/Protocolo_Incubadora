@@ -29,7 +29,6 @@ def iniciar_atuador(id):
                 s.sendall(req_header)
                 print(f"Atuador de {atuadorType} enviou: REQ_REGISTRO")
                 
-                # Acho que o socket nao era escutado o tempo todo, deve resolver
                 while True:
                     # Aguarda ACK_REGISTRO
                     ack_header_bytes = s.recv(3)
@@ -37,10 +36,10 @@ def iniciar_atuador(id):
                         print(f"Atuador de {atuadorType} Erro: O Gerenciador fechou a conexão inesperadamente. Outra tentativa de conexão será realizada...")
                         break
                     
-                    origem, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
+                    _, destino, msg_id, payload_size = unpack_header(ack_header_bytes)
                     bytes_to_read = (payload_size + 7) // 8 if payload_size > 0 else 0
                     if destino != id:
-                        print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Atuador de {atuadorType}.")
+                        print(f"[AVISO] Mensagem descartada! Destino ({NOMES_DISPOSITIVOS.get(destino, destino)}) não corresponde a {NOMES_DISPOSITIVOS.get(id, id)}.")
                         continue # Volta para o início do loop (ignora a mensagem)
 
                     if msg_id == ACK_REGISTRO:
@@ -63,6 +62,9 @@ def iniciar_atuador(id):
                         elif action == 0:
                             print(f"Atuador de {atuadorType} recebeu: CMD_ATUADOR (DESLIGAR).")
 
+                        # Realiza a ação
+                        alter_environment(id, action)
+
                         # Envia o ACK_CMD para o gerenciador
                         ack_header = pack_header(id, ID_GERENCIADOR, ACK_CMD, 8)
                         s.sendall(ack_header + OK.to_bytes(1, 'big'))
@@ -70,7 +72,14 @@ def iniciar_atuador(id):
 
             except (socket.timeout, ConnectionRefusedError): 
                 print(f"Atuador de {atuadorType}: Timeout de Conexão com o Gerenciador.")
-                time.sleep(2)
+
+def alter_environment(ID, action):
+    '''
+    Conexão via UDP com o simulador de ambiente para modificação das métricas
+    '''
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(1.0)
+        s.sendto(f'SET {ID} {action}'.encode(), ('127.0.0.1', 5000))
 
 if __name__ == "__main__":
     t1 = threading.Thread(target=iniciar_atuador, args=(ID_ATUADOR_AQUEC,))

@@ -43,7 +43,7 @@ def escutar_gerenciador(conn):
                 dado = struct.unpack('!f', payload[1:5])[0]
                 
                 status = "ERRO/FALHA" if flag == ERROR else "FORA DO LIMITE"
-                print(f"\n[!!! ALERTA !!!] Dispositivo ID {origem_disp} | Status: {status} | Valor Registrado: {dado:.2f}")
+                print(f"\n[!!! ALERTA !!!] {NOMES_DISPOSITIVOS.get(origem_disp, origem_disp)} | Status: {status} | Valor Registrado: {dado:.2f}")
                 print("\nDigite sua opção: ", end="", flush=True)
 
     except Exception as e:

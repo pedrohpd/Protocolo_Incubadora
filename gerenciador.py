@@ -96,13 +96,13 @@ def send_ALERTA(orig, data=0, flag = OK):
         try:
             mensagem = msg_ALERTA(orig, flag, data)
             conn_cliente.sendall(mensagem)
-            print(f"[GERENCIADOR] ALERTA enviado ao Cliente único (ID {ID_CLIENTE}).")
+            print(f"[GERENCIADOR] ALERTA enviado ao {NOMES_DISPOSITIVOS.get(ID_CLIENTE, ID_CLIENTE)}")
             
         except Exception as e:
             print(f"[ERRO] Falha ao enviar alerta para o Cliente: {e}")
             
     else:
-        print(f"[AVISO] Alerta de emergência gerado (Disp: {orig}), mas o Cliente está OFFLINE!")
+        print(f"[AVISO] Alerta de emergência gerado (Disp: {NOMES_DISPOSITIVOS.get(orig, orig)}), mas o Cliente está OFFLINE!")
 
 def send_CMD_ATUADOR(atuador, on):
     '''
@@ -112,7 +112,7 @@ def send_CMD_ATUADOR(atuador, on):
         conn_atuador = connections[atuador]
         conn_atuador.sendall(msg_CMD_ATUADOR(atuador, on))
         estado_str = "LIGAR" if on == 1 else "DESLIGAR"
-        print(f"[GERENCIADOR] ENVIADO: CMD {estado_str} para Atuador {atuador}.")
+        print(f"[GERENCIADOR] ENVIADO: CMD {estado_str} para {NOMES_DISPOSITIVOS.get(atuador, atuador)}.")
     else: # Atuador desconectado
         send_ALERTA(orig=atuador, flag=ERROR)
 
@@ -133,10 +133,10 @@ def process_atuador_cmd(id_atuador, on):
             atuadores_timeout_count[id_atuador] += 1
             # 3 ciclos (3s) sem ACK
             if atuadores_timeout_count[id_atuador] == 4:
-                print(f"[GERENCIADOR] Timeout: Atuador {id_atuador} inoperante (sem ACK em 3s).")
+                print(f"[GERENCIADOR] Timeout: {NOMES_DISPOSITIVOS.get(id_atuador, id_atuador)} inoperante (sem ACK em 3s).")
                 send_ALERTA(orig=id_atuador, flag=ERROR)
             else:
-                print(f"[GERENCIADOR] Retransmitindo CMD para Atuador {id_atuador} (Timeout).")
+                print(f"[GERENCIADOR] Retransmitindo CMD para {NOMES_DISPOSITIVOS.get(id_atuador, id_atuador)} (Timeout).")
                 send_CMD_ATUADOR(id_atuador, on)
 
 def connection(conn, addr):
@@ -171,7 +171,7 @@ def connection(conn, addr):
 
                 # Pacote com outro destino
                 if dest != ID_GERENCIADOR:
-                    print(f"[AVISO] Mensagem descartada! Destino ({dest}) não corresponde ao Gerenciador de {ID_GERENCIADOR}.")
+                    print(f"[AVISO] Mensagem descartada! Destino ({NOMES_DISPOSITIVOS.get(dest, dest)}) não corresponde ao Gerenciador de {NOMES_DISPOSITIVOS.get(ID_GERENCIADOR, ID_GERENCIADOR)}.")
                     continue
                 
                 if ID_disp is None:
@@ -184,9 +184,9 @@ def connection(conn, addr):
 
             # Interpretação da mensagem
             if ID_msg == REQ_REGISTRO:
-                print(f"[GERENCIADOR] RECEBIDO: REQ_REGISTRO do ID {orig}")
+                print(f"[GERENCIADOR] RECEBIDO: REQ_REGISTRO do {NOMES_DISPOSITIVOS.get(orig, orig)}")
                 conn.sendall(msg_ACK_REGISTRO(orig, OK))
-                print(f"[GERENCIADOR] ENVIADO: ACK_REGISTRO para ID {orig}")
+                print(f"[GERENCIADOR] ENVIADO: ACK_REGISTRO para {NOMES_DISPOSITIVOS.get(orig, orig)}")
 
                 # Se um Atuador inoperante for reiniciado e 
                 # se reconectar, zeramos os erros para que ele volte a funcionar
@@ -199,7 +199,7 @@ def connection(conn, addr):
             
             elif ID_msg == ENVIO_DADOS:
                 data = struct.unpack('!f', payload)[0]
-                print(f"[GERENCIADOR] RECEBIDO: ENVIO_DADOS do Sensor {orig} -> Valor: {data:.2f}")
+                print(f"[GERENCIADOR] RECEBIDO: ENVIO_DADOS do {NOMES_DISPOSITIVOS.get(orig, orig)} -> Valor: {data:.2f}")
 
                 # Envia ALERTA e aciona os Atuadores caso a leitura esteja fora dos limites
                 if orig == ID_SENSOR_BAT_CARD:
@@ -209,44 +209,51 @@ def connection(conn, addr):
                     
                 elif orig == ID_SENSOR_OXIG:
                     O2 = data
-                    on = 0
-                    if data > MAX_O2 or data < MIN_O2:
+                    on = atuadores_req[ID_ATUADOR_CIRC_AR]
+                    if data < MIN_O2:
                         send_ALERTA(orig, data)
                         on = 1
+                    elif data > MAX_O2:
+                        send_ALERTA(orig, data)
+                        on = 0
                     process_atuador_cmd(ID_ATUADOR_CIRC_AR, on)
 
                 elif orig == ID_SENSOR_TEMP:
                     TEMP = data
-                    # Flag para ativação do Atuador
-                    on = 0
-                    if data > MAX_TEMP or data < MIN_TEMP:
+                    on = atuadores_req[ID_ATUADOR_AQUEC]
+                    if data < MIN_TEMP:
                         send_ALERTA(orig, data)
                         on = 1
+                    elif data > MAX_TEMP:
+                        send_ALERTA(orig, data)
+                        on = 0
                     process_atuador_cmd(ID_ATUADOR_AQUEC, on)
                         
                 elif orig == ID_SENSOR_UMID:
                     UMID = data
-                    # Flag para ativação do Atuador
-                    on = 0
-                    if data > MAX_UMID or data < MIN_UMID:
+                    on = atuadores_req[ID_ATUADOR_UMID]
+                    if data < MIN_UMID:
                         send_ALERTA(orig, data)
                         on = 1
+                    elif data > MAX_UMID:
+                        send_ALERTA(orig, data)
+                        on = 0
                     process_atuador_cmd(ID_ATUADOR_UMID, on)
                         
             elif ID_msg == REQ_LEITURA:
-                print(f"[GERENCIADOR] RECEBIDO: REQ_LEITURA do ID {orig}")
+                print(f"[GERENCIADOR] RECEBIDO: REQ_LEITURA do {NOMES_DISPOSITIVOS.get(orig, orig)}")
                 ID = struct.unpack('!i', payload)[0]
                 conn.sendall(msg_RES_LEITURA(ID))
-                print(f"[GERENCIADOR] ENVIADO: RES_LEITURA para o destino ID {orig} com ID {ID}")
+                print(f"[GERENCIADOR] ENVIADO: RES_LEITURA para o destino {NOMES_DISPOSITIVOS.get(orig, orig)} com ID {NOMES_DISPOSITIVOS.get(ID, ID)}")
 
             elif ID_msg == CONFIG:
                 ID_func = payload[0] & 0b11
                 min = struct.unpack('!f', payload[1:5])[0]
                 max = struct.unpack('!f', payload[5:9])[0]
 
-                metricas = {0: "TEMPERATURA", 1: "UMIDADE", 2: "OXIGENAÇÃO", 3: "BATIMENTOS"}
+                metricas = {0: "TEMPERATURA", 1: "BATIMENTOS", 2: "UMIDADE", 3: "OXIGENAÇÃO"}
                 nome_metrica = metricas.get(ID_func, "DESCONHECIDO")
-                print(f"[CLIENTE {orig}] Configurou {nome_metrica}: MIN = {min:.2f} | MAX = {max:.2f}")
+                print(f"[{NOMES_DISPOSITIVOS.get(orig, orig)}] Configurou {nome_metrica}: MIN = {min:.2f} | MAX = {max:.2f}")
 
                 if ID_func == 0:
                     MIN_TEMP = min
@@ -268,14 +275,14 @@ def connection(conn, addr):
                     atuadores_ack[orig] = atuadores_req[orig]
                     atuadores_timeout_count[orig] = 0
                     atuadores_error_count[orig] = 0
-                    print(f"[GERENCIADOR] Recebido ACK_CMD (OK) do Atuador {orig}.")
+                    print(f"[GERENCIADOR] Recebido ACK_CMD (OK) do {NOMES_DISPOSITIVOS.get(orig, orig)}.")
                 elif status_atuador == ERROR:
                     atuadores_error_count[orig] += 1
                     if atuadores_error_count[orig] <= 3:
-                        print(f"[GERENCIADOR] Atuador {orig} falhou internamente. Tentativa imediata {atuadores_error_count[orig]}/3...")
+                        print(f"[GERENCIADOR] {NOMES_DISPOSITIVOS.get(orig, orig)} falhou internamente. Tentativa imediata {atuadores_error_count[orig]}/3...")
                         send_CMD_ATUADOR(orig, atuadores_req[orig])
                     else:
-                        print(f"[GERENCIADOR] Falha persistente no Atuador {orig} após 3 tentativas.")
+                        print(f"[GERENCIADOR] Falha persistente no {NOMES_DISPOSITIVOS.get(orig, orig)} após 3 tentativas.")
                         send_ALERTA(orig=orig, flag=ERROR)
 
     except (socket.timeout, ConnectionRefusedError, ConnectionResetError, BrokenPipeError) as e: 

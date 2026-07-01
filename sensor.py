@@ -44,7 +44,7 @@ def iniciar_sensor(id):
                 payload = s.recv(bytes_to_read)
 
                 if destino != id:
-                    print(f"[AVISO] Mensagem descartada! Destino ({destino}) não corresponde ao Sensor de {sensorType}.")
+                    print(f"[AVISO] Mensagem descartada! Destino ({NOMES_DISPOSITIVOS.get(destino, destino)}) não corresponde a {NOMES_DISPOSITIVOS.get(id, id)}.")
                     continue # Volta para o início do loop (ignora a mensagem)
 
                 if msg_id == ACK_REGISTRO:
@@ -54,16 +54,8 @@ def iniciar_sensor(id):
                         
                         # Loop de monitoramento
                         while True:
-                            data = 0
-                            if id == ID_SENSOR_TEMP:
-                                data = random.uniform(34.9, 38.0) # Intervalo ideal de temperatura (35 - 38)
-                            elif id == ID_SENSOR_OXIG:
-                                data = random.uniform(80.0, 96.0) # Intervalo ideal de oxigenação (80 - 95)
-                            elif id == ID_SENSOR_UMID:
-                                data = random.uniform(40.0, 80.5) # Intervalo ideal de umidade (40 - 80)
-                            elif id == ID_SENSOR_BAT_CARD:
-                                data = random.uniform(119, 161) # Intervalo ideal de batimentos cardiacos por minuto (120 - 160)
-
+                            # Leitura do ambiente simulado
+                            data = read_environment(id)
                             payload_float = struct.pack('!f', data)
                             
                             # Header: 32 bits de payload para o float
@@ -80,6 +72,19 @@ def iniciar_sensor(id):
             except (socket.timeout, ConnectionRefusedError, ConnectionResetError, BrokenPipeError) as e: 
                 print(f"Sensor de {sensorType}: Timeout de Conexão com o Gerenciador.")
                 time.sleep(2)
+
+def read_environment(sensor_id):
+    """
+    Lê as métricas do simulador físico via UDP
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.settimeout(1.0)
+        s.sendto(f"GET {sensor_id}".encode(), ('127.0.0.1', 5000))
+        try:
+            data, _ = s.recvfrom(1024)
+            return float(data.decode())
+        except socket.timeout:
+            return 0.0 # Retorna 0 se o ambiente.py estiver desligado
 
 if __name__ == "__main__":
     t1 = threading.Thread(target=iniciar_sensor, args=(ID_SENSOR_TEMP,))
