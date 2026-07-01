@@ -7,11 +7,12 @@ O objetivo do sistema é garantir o funcionamento seguro de uma incubadora atrav
 
 O sistema é dividido em processos independentes que se comunicam via rede local (`127.0.0.1` na porta `3000`).
 
-* **`protocol.py`**: Biblioteca base compartilhada por todos os componentes. Define os IDs dos dispositivos, tipos de mensagens e as funções `pack_header` e `unpack_header`, que formatam o cabeçalho do protocolo (19 bits compactados em 3 bytes) e anexam o payload.
+* **`protocol.py`**: Biblioteca base compartilhada por todos os componentes. Define os IDs dos dispositivos, tipos de mensagens, o dicionário `NOMES_DISPOSITIVOS` para exibição descritiva e as funções `pack_header` e `unpack_header` para formatação do cabeçalho de 3 bytes (19 bits compactados).
+* **`ambiente.py`**: Simulador das leis físicas da incubadora. Executa a termodinâmica simulada e expõe uma porta UDP local (`5000`) para que os atuadores corrijam o ambiente físico e os sensores realizem leituras físicas contínuas das grandezas.
 * **`gerenciador.py`**: Atua como o Servidor central. Recebe conexões, armazena o estado atual dos sensores, gerencia os atuadores através de comandos liga/desliga (`CMD_ATUADOR`) e lida com retransmissões baseadas em timeout.
-* **`sensores.py`**: Simula quatro sensores operando simultaneamente via *threads*: Temperatura, Umidade, Oxigenação e Batimentos Cardíacos. Eles enviam dados (`ENVIO_DADOS`) em float de 32 bits a cada 1 segundo após o registro bem-sucedido.
-* **`atuadores.py`**: Simula três atuadores vitais: Aquecimento, Circulação do Ar e Umidade. Eles se conectam ao Gerenciador, aguardam comandos e respondem com confirmações (`ACK_CMD`).
-* **`cliente.py`**: Interface interativa do usuário. Permite solicitar a leitura do valor atual de um sensor específico, reconfigurar os valores mínimos e máximos de cada métrica e ouvir alertas assíncronos gerados pelo Gerenciador caso algo saia do controle.
+* **`sensor.py`**: Simula os sensores operando simultaneamente via *threads*: Temperatura, Umidade, Oxigenação e Batimentos Cardíacos. Eles realizam leituras no simulador UDP e enviam os dados (`ENVIO_DADOS`) em float de 32 bits a cada 1 segundo ao Gerenciador após o registro.
+* **`atuador.py`**: Simula os atuadores vitais: Aquecimento, Circulação do Ar e Umidade. Eles se conectam ao Gerenciador, aguardam comandos e aplicam as alterações físicas no simulador UDP, respondendo com confirmações (`ACK_CMD`).
+* **`cliente.py`**: Interface interativa do usuário. Permite solicitar a leitura do valor atual de um sensor específico, reconfigurar os limites de cada métrica e ouvir alertas assíncronos gerados pelo Gerenciador caso algo saia do controle.
 
 ## Como Executar
 
@@ -22,30 +23,34 @@ O sistema é dividido em processos independentes que se comunicam via rede local
 
 ### Passo a Passo
 
-Como cada arquivo representa um processo (ou conjunto de processos) diferente, você precisará abrir **quatro terminais** separados.
+Como cada arquivo representa um processo (ou conjunto de processos) diferente, você precisará abrir **cinco terminais** separados.
 
-**1. Inicie o Servidor Central (Gerenciador)**  
-No primeiro terminal, inicie o servidor que irá gerenciar todas as conexões:
+**1. Inicie o Simulador de Ambiente**  
+No primeiro terminal, ligue o simulador de leis físicas do ambiente:
+```bash
+python ambiente.py
+```
 
+**2. Inicie o Servidor Central (Gerenciador)**  
+No segundo terminal, inicie o servidor que irá gerenciar todas as conexões:
 ```bash
 python gerenciador.py
 ```
 
-**2. Conecte os Atuadores**  
-No segundo terminal, ligue os dispositivos que vão corrigir as falhas na incubadora:
+**3. Conecte os Atuadores**  
+No terceiro terminal, ligue os dispositivos atuadores:
 ```bash
 python atuador.py
 ```
 
-**3. Conecte os Sensores**  
-No terceiro terminal, inicie o envio de dados vitais simulados:
+**4. Conecte os Sensores**  
+No quarto terminal, inicie a leitura e o envio contínuo dos dados físicos:
 ```bash
 python sensor.py
 ```
 
-
-**4. Abra o Terminal de Controle (Cliente)**  
-No quarto e último terminal, inicie a interface do usuário:
+**5. Abra o Terminal de Controle (Cliente)**  
+No quinto e último terminal, inicie a interface de monitoramento e configuração:
 ```bash
 python cliente.py
 ```
